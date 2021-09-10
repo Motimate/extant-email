@@ -75,7 +75,7 @@ export default function Home() {
                 <br />
                 {Object.keys(rest).map((r) => (
                   <p key={`${email}-${r}`}>
-                    {r}: {`${rest[r]}`}
+                    {r}: {`${rest[r as keyof typeof rest]}`}
                   </p>
                 ))}
               </li>
