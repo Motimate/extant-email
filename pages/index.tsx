@@ -17,6 +17,9 @@ interface Item {
 export default function Home() {
   const [emails, setEmails] = useState<string[]>([]);
   const [data, setData] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-100">
       <Head>
@@ -48,22 +51,37 @@ export default function Home() {
           }}
         />
         <button
-          className="p-4 font-bold rounded-xl bg-blue-500 text-white flex items-center"
+          className="p-4 font-bold rounded-xl bg-blue-500 text-white flex items-center disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={loading}
           onClick={async () => {
-            const res = await fetch("/api/email", {
-              method: "POST",
-              body: JSON.stringify(emails),
-            });
+            setLoading(true);
 
-            const json = await res.json();
+            try {
+              const res = await fetch("/api/email_check", {
+                method: "POST",
+                body: JSON.stringify(emails),
+              });
 
-            if (json) {
-              setData(json);
+              if (res.status !== 200) {
+                throw new Error(`Statuscode ${res.status}: ${res.statusText}`);
+              }
+
+              const json = await res.json();
+
+              if (json) {
+                setData(json);
+              }
+            } catch (err: any) {
+              setError(err.message);
             }
+
+            setLoading(false);
           }}
         >
           Check emails
         </button>
+
+        {error && <p className="text-base text-red-600 p-2">{error}</p>}
 
         <ul className="flex flex-col space-y-2 max-w-3xl justify-start text-left">
           {data.map((d) => {
