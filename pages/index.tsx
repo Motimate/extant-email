@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useState } from "react";
 import { ReactMultiEmail } from "react-multi-email";
 import "react-multi-email/style.css";
@@ -40,8 +41,8 @@ const getStatusColor = (val: string) => {
 };
 
 export default function Home() {
-  const [emails, setEmails] = useState<string[]>([]);
-  const [data, setData] = useState<Item[]>([]);
+  const [emails, setEmails] = useLocalStorage<string[]>("persistedEmails", []);
+  const [data, setData] = useLocalStorage<Item[]>("persistedData", []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
