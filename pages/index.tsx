@@ -60,6 +60,9 @@ export default function Home() {
               const res = await fetch("/api/email_check", {
                 method: "POST",
                 body: JSON.stringify(emails),
+                headers: {
+                  "content-type": "application/json",
+                },
               });
 
               if (res.status !== 200) {
