@@ -112,6 +112,16 @@ export default function Home() {
           >
             Check emails
           </button>
+          <button
+            className="p-4 font-bold rounded-xl bg-gray-300 text-gray-500 flex items-center disabled:cursor-not-allowed transition ease-in duration-300 disabled:opacity-70 hover:bg-gray-400"
+            disabled={loading}
+            onClick={() => {
+              setData([]);
+              setEmails([]);
+            }}
+          >
+            Reset data
+          </button>
         </div>
 
         {error && <p className="text-base text-red-600 p-2">{error}</p>}
