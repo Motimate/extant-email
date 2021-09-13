@@ -3,6 +3,7 @@ use actix_web::{
 };
 use extant::mail::{check_single_email, EmailCheckInput};
 use futures::{executor, future};
+use log::info;
 use std::env;
 use std::{sync::mpsc, thread};
 
@@ -22,10 +23,14 @@ fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error
 
 #[post("/api/email_check")]
 async fn email_check(emails: web::Json<Vec<String>>) -> impl Responder {
+    let hostname = match gethostname::gethostname().into_string() {
+        Ok(hostname) => hostname,
+        _ => String::from("localhost"),
+    };
     let inputs = emails.iter().map(|email| EmailCheckInput {
         to_emails: vec![email.to_string()],
         from_email: env::var("FROM_EMAIL").unwrap_or("user@example.com".to_string()),
-        hello_name: env::var("HELLO_NAME").unwrap_or("localhost".to_string()),
+        hello_name: env::var("HELLO_NAME").unwrap_or(hostname.to_owned()),
         ..Default::default()
     });
 
@@ -41,7 +46,11 @@ async fn index() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("check-if-email-exists"));
+    env_logger::init_from_env(
+        env_logger::Env::new().default_filter_or("check-if-email-exists,info"),
+    );
+
+    info!("Hostname: {:?}", gethostname::gethostname());
 
     let port = env::var("PORT").unwrap_or(String::from("8080"));
     let host = env::var("HOST").unwrap_or(String::from("0.0.0.0"));
