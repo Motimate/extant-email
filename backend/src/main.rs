@@ -22,9 +22,12 @@ fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error
 
 #[post("/api/email_check")]
 async fn email_check(emails: web::Json<Vec<String>>) -> impl Responder {
-    let inputs = emails
-        .iter()
-        .map(|email| EmailCheckInput::new(vec![email.to_string()]));
+    let inputs = emails.iter().map(|email| EmailCheckInput {
+        to_emails: vec![email.to_string()],
+        from_email: env::var("FROM_EMAIL").unwrap_or("user@example.com".to_string()),
+        hello_name: env::var("HELLO_NAME").unwrap_or("localhost".to_string()),
+        ..Default::default()
+    });
 
     let email_checks = future::join_all(inputs.map(check_single_email)).await;
 
