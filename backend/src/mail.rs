@@ -1,6 +1,8 @@
+use std::fmt;
 use std::hash::Hash;
 use std::time::Duration;
 
+use async_recursion::async_recursion;
 use async_std_resolver::lookup::MxLookup;
 use async_std_resolver::{config, resolver, ResolveError};
 use cached::proc_macro::cached;
@@ -10,12 +12,29 @@ use check_if_email_exists::mx::MxDetails;
 use check_if_email_exists::smtp::{check_smtp, SmtpDetails, SmtpError};
 use check_if_email_exists::syntax::check_syntax;
 use check_if_email_exists::{CheckEmailInput, Reachable};
-use log::info;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum MyReachable {
+    Safe,
+    Risky,
+    Invalid,
+    Unknown,
+}
+
+impl fmt::Display for MyReachable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            MyReachable::Invalid => write!(f, "invalid"),
+            MyReachable::Risky => write!(f, "risky"),
+            MyReachable::Safe => write!(f, "safe"),
+            MyReachable::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailCheckResponse {
-    pub is_reachable: String,
+    pub is_reachable: MyReachable,
     pub email: String,
     pub is_disposable: Option<bool>,
     pub is_role_account: Option<bool>,
@@ -29,7 +48,7 @@ pub struct EmailCheckResponse {
 impl Default for EmailCheckResponse {
     fn default() -> Self {
         EmailCheckResponse {
-            is_reachable: String::from("Unknown"),
+            is_reachable: MyReachable::Unknown,
             email: String::from("Unknown"),
             is_disposable: None,
             is_role_account: None,
@@ -112,7 +131,6 @@ impl EmailCheckInput {
 }
 
 fn calculate_reachable(misc: &MiscDetails, smtp: &Result<SmtpDetails, SmtpError>) -> Reachable {
-    info!("{:?}", smtp);
     if let Ok(smtp) = smtp {
         if misc.is_disposable || misc.is_role_account || smtp.is_catch_all || smtp.has_full_inbox {
             return Reachable::Risky;
@@ -124,8 +142,34 @@ fn calculate_reachable(misc: &MiscDetails, smtp: &Result<SmtpDetails, SmtpError>
 
         Reachable::Safe
     } else {
-        info!("calculate_reachable: unknown");
         Reachable::Unknown
+    }
+}
+
+#[async_recursion]
+pub async fn retry(input: EmailCheckInput, count: usize) -> EmailCheckResponse {
+    log::info!("[email={}] attempt #{}", input.to_emails[0], count,);
+
+    let result = match check_single_email(input.clone()).await {
+        Ok(result) => result,
+        Err(result) => result,
+    };
+
+    log::debug!(
+        "[email={}] Got result, attempt #{}, is_reachable={:?}",
+        input.to_emails[0],
+        count,
+        result.is_reachable
+    );
+
+    if result.is_reachable == MyReachable::Unknown {
+        if count <= 1 {
+            return result;
+        } else {
+            retry(input, count - 1).await
+        }
+    } else {
+        return result;
     }
 }
 
@@ -143,12 +187,17 @@ pub async fn check_mx_domain(domain: String) -> Result<MxLookup, ResolveError> {
     }
 }
 
+// Return a `Result` here simply to bust cache, it will always have the expected value
+//  but an `Err` means it won't be cached, while `Ok` means it will be cached
 #[cached(
     type = "SizedCache<String, EmailCheckResponse>",
     create = "{ SizedCache::with_size(100) }",
-    convert = r#"{ input.to_emails[0].to_owned() }"#
+    convert = r#"{ input.to_emails[0].to_owned() }"#,
+    result = true
 )]
-pub async fn check_single_email(input: EmailCheckInput) -> EmailCheckResponse {
+pub async fn check_single_email(
+    input: EmailCheckInput,
+) -> Result<EmailCheckResponse, EmailCheckResponse> {
     let ciee_input = CheckEmailInput {
         from_email: input.from_email.clone(),
         hello_name: input.hello_name.clone(),
@@ -162,31 +211,30 @@ pub async fn check_single_email(input: EmailCheckInput) -> EmailCheckResponse {
 
     let my_syntax = check_syntax(to_email.as_ref());
     if !my_syntax.is_valid_syntax {
-        return EmailCheckResponse {
+        return Ok(EmailCheckResponse {
             email: to_email.to_string(),
-            is_reachable: "invalid".into(),
+            is_reachable: MyReachable::Invalid,
             ..Default::default()
-        };
+        });
     }
 
     let my_mx = match check_mx_domain(my_syntax.domain.clone()).await {
         Ok(m) => MxDetails::from(m),
-        e => {
-            info!("my_mx error: {:?}", e);
-            return EmailCheckResponse {
+        _e => {
+            return Err(EmailCheckResponse {
                 email: to_email.to_string(),
-                is_reachable: "unknown".into(),
+                is_reachable: MyReachable::Unknown,
                 ..Default::default()
-            };
+            });
         }
     };
 
     if my_mx.lookup.is_err() {
-        return EmailCheckResponse {
+        return Err(EmailCheckResponse {
             email: to_email.to_string(),
-            is_reachable: "invalid".into(),
+            is_reachable: MyReachable::Invalid,
             ..Default::default()
-        };
+        });
     }
 
     let my_misc = check_misc(&my_syntax);
@@ -216,10 +264,10 @@ pub async fn check_single_email(input: EmailCheckInput) -> EmailCheckResponse {
     let mut result = EmailCheckResponse {
         email: to_email.to_string(),
         is_reachable: match calculate_reachable(&my_misc, &my_smtp) {
-            Reachable::Safe => "safe".into(),
-            Reachable::Risky => "risky".into(),
-            Reachable::Invalid => "invalid".into(),
-            Reachable::Unknown => "unknown".into(),
+            Reachable::Safe => MyReachable::Safe,
+            Reachable::Risky => MyReachable::Risky,
+            Reachable::Invalid => MyReachable::Invalid,
+            Reachable::Unknown => MyReachable::Unknown,
         },
         is_disposable: Some(my_misc.is_disposable),
         is_role_account: Some(my_misc.is_role_account),
@@ -237,5 +285,9 @@ pub async fn check_single_email(input: EmailCheckInput) -> EmailCheckResponse {
         _ => {}
     }
 
-    result
+    if result.is_reachable == MyReachable::Unknown {
+        return Err(result);
+    }
+
+    Ok(result)
 }

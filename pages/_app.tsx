@@ -1,5 +1,12 @@
 import { AppProps } from "next/app";
-import "tailwindcss/tailwind.css";
+import globalStyles from "../styles/globalStyles";
+import { IdProvider } from "@radix-ui/react-id";
+
 export default function MyApp({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+  globalStyles();
+  return (
+    <IdProvider>
+      <Component {...pageProps} />
+    </IdProvider>
+  );
 }

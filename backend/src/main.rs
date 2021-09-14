@@ -1,10 +1,11 @@
 use actix_web::{
     error, get, middleware, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use extant::mail::{check_single_email, EmailCheckInput};
+use extant::mail::{retry, EmailCheckInput};
 use futures::{executor, future};
 use log::info;
 use std::env;
+use std::time::Duration;
 use std::{sync::mpsc, thread};
 
 fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error::Error {
@@ -31,10 +32,11 @@ async fn email_check(emails: web::Json<Vec<String>>) -> impl Responder {
         to_emails: vec![email.to_string()],
         from_email: env::var("FROM_EMAIL").unwrap_or("user@example.com".to_string()),
         hello_name: env::var("HELLO_NAME").unwrap_or(hostname.to_owned()),
+        smtp_timeout: Some(Duration::from_secs(10)),
         ..Default::default()
     });
 
-    let email_checks = future::join_all(inputs.map(check_single_email)).await;
+    let email_checks = future::join_all(inputs.map(|i| retry(i, 2))).await;
 
     HttpResponse::Ok().json(email_checks)
 }

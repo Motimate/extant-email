@@ -15,5 +15,6 @@
   },
   "[rust]": {
     "editor.defaultFormatter": "matklad.rust-analyzer"
-  }
+  },
+  "tailwindcss.enabled": true
 }
