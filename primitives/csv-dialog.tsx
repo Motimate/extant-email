@@ -14,14 +14,7 @@ import {
 
 import { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 
-import { keyframes } from "@stitches/react";
 import tw, { styled } from "twin.macro";
-//import { styled } from "@stitches/react";
-
-const overlayShow = keyframes({
-  "0%": { opacity: 0 },
-  "100%": { opacity: 1 },
-});
 
 const baseStyle = {
   flex: 1,

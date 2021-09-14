@@ -3,7 +3,13 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useState } from "react";
 import { ReactMultiEmail } from "react-multi-email";
 import "react-multi-email/style.css";
-import Dialog from "../primitives/csv-dialog";
+import CsvDialog from "../primitives/csv-dialog";
+import {
+  Dialog,
+  DialogDescription,
+  DialogTitle,
+  DialogContent,
+} from "../primitives/dialog";
 import tw from "twin.macro";
 import Button from "../primitives/button";
 interface Item {
@@ -54,7 +60,163 @@ export default function Home() {
         <title>Check emails</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
+
       <section tw="flex flex-col p-12 space-y-4">
+        <Dialog open={loading}>
+          <DialogContent>
+            <DialogTitle>Checking emails...</DialogTitle>
+            <DialogDescription>
+              This process can take up to 30 seconds. To avoid being graylisted
+              by email providers we might have to check some emails twice.
+            </DialogDescription>
+            <div tw="flex items-center justify-center py-8">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="58"
+                height="58"
+                viewBox="0 0 58 58"
+                tw="text-blue-500"
+              >
+                <g fill="none" fillRule="evenodd">
+                  <g
+                    transform="translate(2 1)"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <circle
+                      cx="42.601"
+                      cy="11.462"
+                      r="5"
+                      fillOpacity="1"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="1;0;0;0;0;0;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="49.063"
+                      cy="27.063"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;1;0;0;0;0;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="42.601"
+                      cy="42.663"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;1;0;0;0;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="27"
+                      cy="49.125"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;0;1;0;0;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="11.399"
+                      cy="42.663"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;0;0;1;0;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="4.938"
+                      cy="27.063"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;0;0;0;1;0;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="11.399"
+                      cy="11.462"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;0;0;0;0;1;0"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      cx="27"
+                      cy="5"
+                      r="5"
+                      fillOpacity="0"
+                      fill="currentColor"
+                    >
+                      <animate
+                        attributeName="fill-opacity"
+                        begin="0s"
+                        dur="1.3s"
+                        values="0;0;0;0;0;0;0;1"
+                        calcMode="linear"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  </g>
+                </g>
+              </svg>
+            </div>
+          </DialogContent>
+        </Dialog>
         <div tw="w-full">
           <ReactMultiEmail
             placeholder="Enter email addresses"
@@ -115,7 +277,7 @@ export default function Home() {
           >
             Check emails
           </Button>
-          <Dialog
+          <CsvDialog
             onClick={(data: string[]) => {
               setEmails(data);
             }}

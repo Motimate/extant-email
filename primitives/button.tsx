@@ -1,7 +1,7 @@
 import tw, { styled } from "twin.macro";
 
 const Button = styled.button({
-  ...tw`font-semibold px-6 py-3 rounded-lg transform transition ease-in-out duration-200 outline-none`,
+  ...tw`font-semibold px-6 py-3 rounded-lg transform transition ease-in-out duration-200 outline-none disabled:(cursor-not-allowed opacity-80)`,
   ...tw`focus:(outline-none)`,
 
   variants: {
