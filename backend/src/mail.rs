@@ -12,6 +12,10 @@ use check_if_email_exists::mx::MxDetails;
 use check_if_email_exists::smtp::{check_smtp, SmtpDetails, SmtpError};
 use check_if_email_exists::syntax::check_syntax;
 use check_if_email_exists::{CheckEmailInput, Reachable};
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -32,6 +36,19 @@ impl fmt::Display for MyReachable {
         }
     }
 }
+
+impl Distribution<MyReachable> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MyReachable {
+        match rng.gen_range(0..=4) {
+            0 => MyReachable::Invalid,
+            1 => MyReachable::Risky,
+            2 => MyReachable::Safe,
+            3 => MyReachable::Unknown,
+            _ => MyReachable::Safe,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailCheckResponse {
     pub is_reachable: MyReachable,

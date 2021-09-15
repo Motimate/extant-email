@@ -10,59 +10,30 @@ import {
   DialogTitle,
   DialogContent,
 } from "../primitives/dialog";
-import tw from "twin.macro";
 import Button from "../primitives/button";
-interface Item {
-  is_reachable: string;
-  email: string;
-  is_disposable?: boolean;
-  is_role_account?: boolean;
-  can_connect_smtp?: boolean;
-  has_full_inbox?: boolean;
-  is_catch_all?: boolean;
-  is_deliverable?: boolean;
-  is_disabled?: boolean;
-}
-
-const prettyBoolean = (val: boolean | null | undefined) => {
-  switch (val) {
-    case true:
-      return "Yes";
-    case false:
-      return "No";
-    default:
-      return "N/A";
-  }
-};
-
-const getStatusColor = (val: string) => {
-  switch (val) {
-    case "Risky":
-      return tw`bg-yellow-100 text-yellow-700`;
-    case "Invalid":
-      return tw`bg-red-100 text-red-700`;
-    case "Safe":
-      return tw`bg-green-100 text-green-700`;
-    default:
-      return tw`bg-gray-100 text-gray-700`;
-  }
-};
+import { Table, Data } from "../primitives/table";
+import { useSpinDelay } from "spin-delay";
 
 export default function Home() {
-  const [emails, setEmails] = useLocalStorage<string[]>("persistedEmails", []);
-  const [data, setData] = useLocalStorage<Item[]>("persistedData", []);
+  const [emails, setEmails] = useLocalStorage<string[]>("persisted_emails", []);
+  const [data, setData] = useLocalStorage<Data | undefined>(
+    "persisted_data",
+    undefined
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const showSpinner = useSpinDelay(loading, { delay: 300, minDuration: 500 });
+
   return (
-    <main tw="min-h-screen flex flex-col w-full">
+    <main tw="min-h-screen flex flex-col w-full max-w-6xl mx-auto">
       <Head>
         <title>Check emails</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <section tw="flex flex-col p-12 space-y-4">
-        <Dialog open={loading}>
+      <section tw="flex flex-col p-12 space-y-4 max-w-6xl min-w-full">
+        <Dialog open={showSpinner}>
           <DialogContent>
             <DialogTitle>Checking emails...</DialogTitle>
             <DialogDescription>
@@ -263,7 +234,7 @@ export default function Home() {
                   );
                 }
 
-                const json = await res.json();
+                const json = (await res.json()) as Data;
 
                 if (json) {
                   setData(json);
@@ -289,7 +260,7 @@ export default function Home() {
             variant="danger"
             disabled={loading}
             onClick={() => {
-              setData([]);
+              setData(undefined);
               setEmails([]);
             }}
           >
@@ -300,131 +271,9 @@ export default function Home() {
 
       {error && <p tw="text-base text-red-600 p-2">{error}</p>}
 
-      <section tw="flex flex-col w-full p-8">
-        <div tw="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div tw="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
-            <div tw="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-              <table tw="min-w-full divide-y divide-gray-200">
-                <thead tw="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Email
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Disposable
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Role Account
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      SMTP Connectable
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Full Inbox
-                    </th>
-                    <th
-                      scope="col"
-                      tw="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Disabled
-                    </th>
-                  </tr>
-                </thead>
-                <tbody tw="bg-white divide-y divide-gray-200">
-                  {data.map((d) => {
-                    const { email, is_reachable, ...rest } = d;
-                    return (
-                      <tr key={email} tw="text-base text-left">
-                        <td tw="px-6 py-4 whitespace-nowrap">
-                          <div tw="flex items-center justify-start">
-                            <div tw="text-base font-medium text-gray-900">
-                              {email}
-                            </div>
-                          </div>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap">
-                          <div tw="text-base text-gray-900 capitalize">
-                            <span
-                              tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full"
-                              css={getStatusColor(d.is_reachable)}
-                            >
-                              {d.is_reachable}
-                            </span>
-                          </div>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap text-left">
-                          <span tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full">
-                            {prettyBoolean(d.is_disposable)}
-                          </span>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap text-left">
-                          <span tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full">
-                            {prettyBoolean(d.is_role_account)}
-                          </span>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap text-left">
-                          <span tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full">
-                            {prettyBoolean(d.can_connect_smtp)}
-                          </span>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap text-left">
-                          <span tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full">
-                            {prettyBoolean(d.has_full_inbox)}
-                          </span>
-                        </td>
-                        <td tw="px-6 py-4 whitespace-nowrap text-left">
-                          <span tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full">
-                            {prettyBoolean(d.is_disabled)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      <section tw="p-8 max-w-7xl flex items-center justify-center mx-auto">
+        {data && <Table data={data} />}
       </section>
-
-      {/* <ul tw="flex flex-col space-y-2 max-w-3xl justify-start text-left">
-          {data.map((d) => {
-            const { email, is_reachable, ...rest } = d;
-            return (
-              <li tw="bg-white rounded-lg p-4 w-80" key={email}>
-                <h2 tw="font-bold text-lg">{email}</h2>
-                <p>Status: {is_reachable}</p>
-                <br />
-                {Object.keys(rest).map((r) => (
-                  <p key={`${email}-${r}`}>
-                    {r}: {`${rest[r as keyof typeof rest]}`}
-                  </p>
-                ))}
-              </li>
-            );
-          })}
-        </ul> */}
     </main>
   );
 }
