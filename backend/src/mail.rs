@@ -1,3 +1,5 @@
+// https://github.com/reacherhq/check-if-email-exist
+
 use std::fmt;
 use std::hash::Hash;
 use std::time::Duration;
@@ -9,14 +11,16 @@ use cached::proc_macro::cached;
 use cached::SizedCache;
 use check_if_email_exists::misc::{check_misc, MiscDetails};
 use check_if_email_exists::mx::MxDetails;
-use check_if_email_exists::smtp::{check_smtp, SmtpDetails, SmtpError};
 use check_if_email_exists::syntax::check_syntax;
-use check_if_email_exists::{CheckEmailInput, Reachable};
+use check_if_email_exists::CheckEmailInput;
+use log::debug;
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::smtp::{check_smtp, SmtpDetails, SmtpError};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum MyReachable {
@@ -24,6 +28,7 @@ pub enum MyReachable {
     Risky,
     Invalid,
     Unknown,
+    Banned,
 }
 
 impl fmt::Display for MyReachable {
@@ -33,17 +38,19 @@ impl fmt::Display for MyReachable {
             MyReachable::Risky => write!(f, "risky"),
             MyReachable::Safe => write!(f, "safe"),
             MyReachable::Unknown => write!(f, "unknown"),
+            MyReachable::Banned => write!(f, "banned"),
         }
     }
 }
 
 impl Distribution<MyReachable> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> MyReachable {
-        match rng.gen_range(0..=4) {
+        match rng.gen_range(0..=5) {
             0 => MyReachable::Invalid,
             1 => MyReachable::Risky,
             2 => MyReachable::Safe,
             3 => MyReachable::Unknown,
+            4 => MyReachable::Banned,
             _ => MyReachable::Safe,
         }
     }
@@ -60,6 +67,7 @@ pub struct EmailCheckResponse {
     pub is_catch_all: Option<bool>,
     pub is_deliverable: Option<bool>,
     pub is_disabled: Option<bool>,
+    pub is_banned: Option<bool>,
 }
 
 impl Default for EmailCheckResponse {
@@ -74,6 +82,7 @@ impl Default for EmailCheckResponse {
             is_catch_all: None,
             is_deliverable: None,
             is_disabled: None,
+            is_banned: None,
         }
     }
 }
@@ -147,19 +156,23 @@ impl EmailCheckInput {
     }
 }
 
-fn calculate_reachable(misc: &MiscDetails, smtp: &Result<SmtpDetails, SmtpError>) -> Reachable {
+fn calculate_reachable(misc: &MiscDetails, smtp: &Result<SmtpDetails, SmtpError>) -> MyReachable {
     if let Ok(smtp) = smtp {
         if misc.is_disposable || misc.is_role_account || smtp.is_catch_all || smtp.has_full_inbox {
-            return Reachable::Risky;
+            return MyReachable::Risky;
+        }
+
+        if smtp.is_banned {
+            return MyReachable::Banned;
         }
 
         if !smtp.is_deliverable || !smtp.can_connect_smtp || smtp.is_disabled {
-            return Reachable::Invalid;
+            return MyReachable::Invalid;
         }
 
-        Reachable::Safe
+        MyReachable::Safe
     } else {
-        Reachable::Unknown
+        MyReachable::Unknown
     }
 }
 
@@ -235,6 +248,8 @@ pub async fn check_single_email(
         });
     }
 
+    debug!("{:?}", my_syntax);
+
     let my_mx = match check_mx_domain(my_syntax.domain.clone()).await {
         Ok(m) => MxDetails::from(m),
         _e => {
@@ -246,6 +261,8 @@ pub async fn check_single_email(
         }
     };
 
+    debug!("{:?}", my_mx);
+
     if my_mx.lookup.is_err() {
         return Err(EmailCheckResponse {
             email: to_email.to_string(),
@@ -255,6 +272,8 @@ pub async fn check_single_email(
     }
 
     let my_misc = check_misc(&my_syntax);
+
+    debug!("{:?}", my_misc);
 
     let my_smtp = my_mx
         .lookup
@@ -278,14 +297,11 @@ pub async fn check_single_email(
         .expect("Lookup cannot be empty. qed.")
         .await;
 
+    debug!("{:?}", my_smtp);
+
     let mut result = EmailCheckResponse {
         email: to_email.to_string(),
-        is_reachable: match calculate_reachable(&my_misc, &my_smtp) {
-            Reachable::Safe => MyReachable::Safe,
-            Reachable::Risky => MyReachable::Risky,
-            Reachable::Invalid => MyReachable::Invalid,
-            Reachable::Unknown => MyReachable::Unknown,
-        },
+        is_reachable: calculate_reachable(&my_misc, &my_smtp),
         is_disposable: Some(my_misc.is_disposable),
         is_role_account: Some(my_misc.is_role_account),
         ..Default::default()
@@ -298,11 +314,15 @@ pub async fn check_single_email(
             result.is_deliverable = Some(smtp.is_deliverable);
             result.is_disabled = Some(smtp.is_disabled);
             result.can_connect_smtp = Some(smtp.can_connect_smtp);
+            result.is_banned = Some(smtp.is_banned);
         }
         _ => {}
     }
 
-    if result.is_reachable == MyReachable::Unknown {
+    if result.is_reachable == MyReachable::Unknown
+        || result.is_reachable == MyReachable::Banned
+        || result.is_reachable == MyReachable::Invalid
+    {
         return Err(result);
     }
 

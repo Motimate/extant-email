@@ -42,7 +42,7 @@ function SingleBar({
             {value} <span tw="text-xs text-gray-500">{percentage}</span>
           </p>
         </div>
-        <p tw="text-xs">{name}</p>
+        <p tw="text-xs capitalize">{name}</p>
       </div>
     </div>
   );

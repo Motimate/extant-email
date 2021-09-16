@@ -843,16 +843,23 @@ version = "1.0.0"
 dependencies = [
  "actix-web",
  "async-recursion",
+ "async-smtp",
+ "async-std",
  "async-std-resolver",
  "cached",
  "check-if-email-exists",
  "env_logger",
+ "fast-socks5",
  "futures",
  "gethostname",
  "log",
  "rand",
+ "regex",
+ "reqwest",
  "serde",
+ "serde_json",
  "tokio",
+ "trust-dns-proto",
 ]
 
 [[package]]

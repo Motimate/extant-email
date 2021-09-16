@@ -16,10 +16,10 @@ import { FixedSizeList } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { Chart } from "../primitives/chart";
 
-import tw, { theme } from "twin.macro";
+import tw, { styled, theme, TwStyle } from "twin.macro";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
-type Reachable = "Safe" | "Invalid" | "Risky" | "Unknown";
+type Reachable = "Safe" | "Invalid" | "Risky" | "Unknown" | "Banned";
 
 export interface Item {
   is_reachable: Reachable;
@@ -35,11 +35,7 @@ export interface Item {
 
 export interface Data {
   stats: {
-    safe: number;
-    risky: number;
-    unknown: number;
-    invalid: number;
-    total: number;
+    [key in ValidKeys]: number;
   };
   items: Item[];
 }
@@ -63,11 +59,13 @@ const getStatusColor = (val: Reachable) => {
       return tw`bg-red-100 text-red-700`;
     case "Safe":
       return tw`bg-green-100 text-green-700`;
+    case "Banned":
+      return tw`bg-gray-500 text-white`;
     default:
       return tw`bg-gray-100 text-gray-700`;
   }
 };
-type ValidKeys = "safe" | "risky" | "invalid" | "unknown" | "total";
+type ValidKeys = "safe" | "risky" | "invalid" | "unknown" | "total" | "banned";
 
 const getStatusColorHex = (key: ValidKeys) => {
   switch (key) {
@@ -77,10 +75,12 @@ const getStatusColorHex = (key: ValidKeys) => {
       return theme`colors.yellow.500`;
     case "safe":
       return theme`colors.green.500`;
+    case "banned":
+      return theme`colors.gray.500`;
     case "total":
       return theme`colors.blue.500`;
     default:
-      return theme`colors.gray.500`;
+      return theme`colors.gray.300`;
   }
 };
 
@@ -168,9 +168,34 @@ function SelectColumnFilter({
   );
 }
 
+const GridItem = ({
+  name,
+  description,
+}: {
+  name: Reachable;
+  description: string;
+}) => (
+  <div tw="flex flex-row space-x-4 items-center justify-start">
+    <div tw="w-20 flex-shrink-0">
+      <span
+        tw="px-2 inline-flex text-sm leading-5 font-semibold rounded-full"
+        css={getStatusColor(name)}
+      >
+        {name}
+      </span>
+    </div>
+    <span>{description}</span>
+  </div>
+);
+
 export const Table = ({ data }: { data: Data }) => {
   const [showChart, setShowChart] = useLocalStorage(
     "persisted_show_chart",
+    true
+  );
+
+  const [showLegend, setShowLegend] = useLocalStorage(
+    "persisted_show_legend",
     true
   );
 
@@ -294,6 +319,41 @@ export const Table = ({ data }: { data: Data }) => {
         >
           {showChart ? "Hide chart" : "Show chart"}
         </button>
+      </div>
+      <div
+        tw="rounded-lg bg-white p-4 mt-12 relative transition-all duration-200 ease-in-out height[200px] min-width[69rem]"
+        css={!showLegend && tw`h-0`}
+      >
+        <button
+          onClick={() => setShowLegend(!showLegend)}
+          tw="left-1/2 -translate-x-1/2 transition ease-in-out duration-300 rounded-t-lg bg-gray-200 pt-2 pb-1 px-4 text-sm absolute -top-8 hocus:(outline-none bg-gray-300)"
+        >
+          {showLegend ? "Hide legend" : "Show legend"}
+        </button>
+        {showLegend && (
+          <div tw="grid grid-cols-2 gap-4 text-base">
+            <GridItem
+              name="Safe"
+              description="The email should never bounce."
+            />
+            <GridItem name="Risky" description="The email might bounce." />
+            <GridItem
+              name="Invalid"
+              description="The email will probably bounce. But the email check can also have been blocked."
+            />
+            <GridItem
+              name="Unknown"
+              description="We are not able to deduce whether this email will bounce or not.
+          E.g. because of connection problems to the provider."
+            />
+
+            <GridItem
+              name="Banned"
+              description="The email check service has been banned by the provider so we can
+          not deduce whether this email will bounce or not."
+            />
+          </div>
+        )}
       </div>
       <div tw="flex space-x-4 justify-start mt-4">
         <GlobalFilter

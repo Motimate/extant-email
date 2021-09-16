@@ -1,3 +1,5 @@
+// https://github.com/reacherhq/check-if-email-exist
+
 use actix_web::{
     error, get, middleware, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -28,16 +30,18 @@ struct Stats {
     safe: i32,
     invalid: i32,
     unknown: i32,
+    banned: i32,
     total: i32,
 }
 
 impl Stats {
-    fn new(risky: i32, safe: i32, invalid: i32, unknown: i32, total: i32) -> Stats {
+    fn new(risky: i32, safe: i32, invalid: i32, unknown: i32, banned: i32, total: i32) -> Stats {
         Stats {
             risky,
             safe,
             invalid,
             unknown,
+            banned,
             total,
         }
     }
@@ -80,7 +84,7 @@ async fn email_check(emails: web::Json<Vec<String>>) -> impl Responder {
         items = future::join_all(inputs.map(|i| retry(i, 2))).await;
     }
 
-    let mut stats = Stats::new(0, 0, 0, 0, 0);
+    let mut stats = Stats::new(0, 0, 0, 0, 0, 0);
 
     items.iter().for_each(|item| {
         stats.total += 1;
@@ -89,6 +93,7 @@ async fn email_check(emails: web::Json<Vec<String>>) -> impl Responder {
             MyReachable::Risky => stats.risky += 1,
             MyReachable::Safe => stats.safe += 1,
             MyReachable::Unknown => stats.unknown += 1,
+            MyReachable::Banned => stats.banned += 1,
         };
     });
 
@@ -102,9 +107,7 @@ async fn index() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(
-        env_logger::Env::new().default_filter_or("check-if-email-exists,info"),
-    );
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("*"));
 
     info!("Hostname: {:?}", gethostname::gethostname());
 
